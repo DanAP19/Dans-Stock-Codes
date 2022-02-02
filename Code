@@ -1,0 +1,94 @@
+pip install yfinance
+pip install mplfinance
+
+#initialising
+#%matplotlib inline
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import mplfinance as mpf
+
+# intialise stock_list and stock as a ticker
+stock_list = ['nvda','fb','msft','amzn','goog','aapl','pypl','etsy','sq','adbe']
+fb = yf.Ticker('fb')
+nvda = yf.Ticker('nvda')
+msft = yf.Ticker('msft')
+amzn = yf.Ticker('amzn')
+goog = yf.Ticker('goog')
+aapl=yf.Ticker('aapl')
+pypl=yf.Ticker('pypl')
+etsy = yf.Ticker('etsy')
+sq=yf.Ticker('sq')
+adbe=yf.Ticker('adbe')
+
+#financial ratios. Quick ratio must be greater than 1, and the smaller the D/E the better
+metric = ['marketCap','debtToEquity','quickRatio','returnOnAssets','returnOnEquity','grossMargins','operatingMargins','profitMargins']
+
+df=pd.DataFrame( index=metric, columns =stock_list)
+for x in metric:
+    for y in stock_list:
+        try:
+            df.loc[x][y]=eval(y+".info['"+x+"']")
+        except:
+            pass
+
+df2=pd.DataFrame(index=['qualityEarnings(>1)','intrinsicvalue','potential1(>28)','financialmetriciv','potential2'], columns=stock_list)
+
+# intrinsic value calculator
+for y in stock_list:
+    try:
+        dftemp= eval(y+'.cashflow')
+        df2.loc['qualityEarnings(>1)'][y]= dftemp.loc['Total Cash From Operating Activities'].iat[0]/dftemp.loc['Net Income'].iat[0]
+
+        currcf= dftemp.loc['Total Cash From Operating Activities'].iat[0]+dftemp.loc['Capital Expenditures'].iat[0]
+        ocf= dftemp.loc['Total Cash From Operating Activities'].iat[3]+dftemp.loc['Capital Expenditures'].iat[3]
+
+        g = float((currcf-ocf)/(currcf*5))+1 #g is percentage aka 0.xx
+        m=g/1.08 
+        sum= ((m)* (((currcf)*(m**5 -1))/ (m-1)))+ ((m**5)*(20)*(currcf)*(g))
+        dcf=sum / eval(y+".info['sharesOutstanding']")
+        df2.loc['intrinsicvalue'][y]= dcf
+        df2.loc['potential1(>28)'][y]= (dcf - float(eval(y+".info['preMarketPrice']")))/ eval(y+".info['preMarketPrice']")*100
+        
+        fmiv= (1+g)*eval(y+".info['trailingPE']")*eval(y+".info['trailingEps']")
+        df2.loc['financialmetriciv'][y]= fmiv
+        df2.loc['potential2'][y]=(fmiv - eval(y+".info['preMarketPrice']"))/ eval(y+".info['preMarketPrice']")*100
+    except:
+        continue
+        
+frames = [df, df2]
+
+#comparison charts for net income, revenue and freecashflow
+df11 = pd.DataFrame()
+for x in stock_list:
+        df11[x] = np.array(eval(x+".cashflow.loc['Net Income']"))
+df11 = df11.loc[::-1].reset_index(drop=True)
+
+df12 = pd.DataFrame()
+for x in stock_list:
+        df12[x] = np.array(eval(x+".financials.loc['Total Revenue']"))
+df12 = df12.loc[::-1].reset_index(drop=True)
+
+df13 = pd.DataFrame()
+for x in stock_list:
+        df13[x] = np.array(eval(x + ".cashflow.loc['Total Cash From Operating Activities']")+ eval(x + ".cashflow.loc['Capital Expenditures']"))
+df13 = df13.loc[::-1].reset_index(drop=True)
+
+df11.plot()
+plt.title('Net Income')
+plt.legend(df11.columns)
+
+df12.plot()
+plt.title('Total Revenue')
+plt.legend(df12.columns)
+
+df13.plot()
+plt.title('Free Cash Flow')
+plt.legend(df13.columns)
+
+# shows the price history of stocks
+for x in stock_list:
+    mpf.plot(yf.Ticker(x).history(period='2y',interval='1d'), type = 'candle', mav = ( 50,200), volume=True, title = f"Price of {x}", style="yahoo") 
+
+pd.concat(frames)

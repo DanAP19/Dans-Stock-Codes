@@ -1,3 +1,7 @@
+# Code performs (1) intrinsic value calculation on stock_list (2) presents key financial ratios and data in a table (3) plots a graph of the Net Income, Revenue and
+Free Cash Flow over time, and (4) shows the price history of the stocks together with a 50 and 200 Simple Moving Average plotted on it.
+
+
 pip install yfinance
 pip install mplfinance
 

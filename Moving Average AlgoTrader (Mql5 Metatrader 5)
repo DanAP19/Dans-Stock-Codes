@@ -1,1 +1,64 @@
-# This code is made with Metatrader 5's coding language, Mql5. It uses a 50 and 200 Simple Moving Average crossover strategy to place buy and sell orders. 
+# This code is made with Metatrader 5's coding language, Mql5. 
+# It uses a 50 and 200 Simple Moving Average crossover strategy to place buy and sell orders, together with my personal adjustments of risk management. 
+# It was one of my first codes for an algo-trader, it is no longer used due to a shift in my risk management and investment strategy. I hope it will provide ideas for anyone who chances upon this code.
+
+void OnTick()
+   {
+      // EURUSD magic is 11
+      // Moing average indicator 
+      double ma200 = iMA(_Symbol,0,200,0,MODE_SMA,PRICE_CLOSE,0);
+      double ma50 = iMA(_Symbol,0,50,0,MODE_SMA,PRICE_CLOSE,0);
+      double ma200lag = iMA(_Symbol,0 ,200,0,MODE_SMA,PRICE_CLOSE,1);
+      double ma50lag = iMA(_Symbol,0,50,0,MODE_SMA,PRICE_CLOSE,1);
+     
+      Comment (" MA200= ", ma200," MA50= ", ma50, " MA200LAG= ", ma200lag ," MA50LAG= ", ma50lag);
+      
+      static datetime TimeStamp;
+      double Lots = 10000*35/(Ask* 100000*3); //ACCOUNT_BALANCE 35 is account leverage ( check before gg live ) 
+      if ( Lots < MarketInfo(_Symbol, MODE_MINLOT)){
+               Lots = MarketInfo(_Symbol, MODE_MINLOT);}
+       
+      // to initiate a buy order
+      if ((ma50>ma200) && (ma50lag<=ma200lag)) 
+         {
+            Comment ("Buy");
+            for ( int AO = 0;AO <= OrdersTotal();AO++ ){
+               OrderSelect(AO,SELECT_BY_POS, MODE_TRADES);
+               if ( OrderMagicNumber () == 11 && OrderType() == OP_SELL )
+                  { int a = OrderClose(OrderTicket(),OrderLots(),Ask,0);}}
+                  
+            if(TimeStamp != Time[0]){
+            int b = OrderSend(_Symbol,OP_BUY,Lots,Ask,1,0,0,NULL,11,0,clrGreen);
+            TimeStamp = Time[0];
+            }}
+            
+      // to initiate a sell order  
+      if ((ma50<ma200) && (ma50lag>=ma200lag))
+         {
+            Comment ("sell");
+            for ( int AT = 0; AT <= OrdersTotal();AT++ ){
+               OrderSelect(AT,SELECT_BY_POS, MODE_TRADES);
+               if ( OrderMagicNumber () == 11 && OrderType() == OP_BUY )
+                  { int c = OrderClose(OrderTicket(),OrderLots(),Bid,0);}}
+                  
+            if(TimeStamp != Time[0]){
+            int d = OrderSend(_Symbol,OP_SELL,Lots,Bid,1,0,0,NULL,11,0,clrRed);
+            TimeStamp = Time[0]; 
+         }}
+               
+      // Error notification         
+      if ( a==-1 || b==-1||c==-1||d==-1)
+      {if(TimeStamp != Time[0]){
+            string errortext = "Failed " +  OrderType() + " order on " + _Symbol + " Error:" +GetLastError();
+            SendNotification(errortext);
+            TimeStamp = Time[0];
+            }}
+     
+      if ( OrdersTotal () > 3)// || ACCOUNT_BALANCE < 9000) // 90% of 10000  
+      { if(TimeStamp != Time[0]){
+            string errortext1 = "ERROR. Orderstotal=" + OrdersTotal() + " Account Balance= " + ACCOUNT_BALANCE;
+            SendNotification(errortext1);
+            TimeStamp = Time[0];
+            }}
+                        
+   }

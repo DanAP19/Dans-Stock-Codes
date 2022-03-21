@@ -1,19 +1,17 @@
 # Code performs (1) intrinsic value calculation on stock_list (2) presents key financial ratios and data in a table (3) plots a graph of the Net Income, Revenue and
 Free Cash Flow over time, and (4) shows the price history of the stocks together with a 50 and 200 Simple Moving Average plotted on it.
 
-
 pip install yfinance
 pip install mplfinance
 
-#initialising
-#%matplotlib inline
+#initialising the modules
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import mplfinance as mpf
+import seaborn as sns
 
-# intialise stock_list and stock as a ticker
 stock_list = ['nvda','fb','msft','amzn','goog','aapl','pypl','etsy','sq','adbe']
 fb = yf.Ticker('fb')
 nvda = yf.Ticker('nvda')
@@ -26,8 +24,12 @@ etsy = yf.Ticker('etsy')
 sq=yf.Ticker('sq')
 adbe=yf.Ticker('adbe')
 
-#financial ratios. Quick ratio must be greater than 1, and the smaller the D/E the better
-metric = ['marketCap','debtToEquity','quickRatio','returnOnAssets','returnOnEquity','grossMargins','operatingMargins','profitMargins']
+#price
+for x in stock_list:
+    mpf.plot(yf.Ticker(x).history(period='2y',interval='1d'), type = 'candle', mav = ( 50,200), volume=True, title = f"Price of {x}", style="yahoo") 
+
+#financial ratios, quick ratio must be greater than 1, d/e less the better
+metric = ['marketCap','debtToEquity','quickRatio','returnOnAssets','returnOnEquity','grossMargins','operatingMargins','profitMargins','beta','dividendYield']
 
 df=pd.DataFrame( index=metric, columns =stock_list)
 for x in metric:
@@ -37,9 +39,8 @@ for x in metric:
         except:
             pass
 
-df2=pd.DataFrame(index=['qualityEarnings(>1)','intrinsicvalue','potential1(>28)','financialmetriciv','potential2'], columns=stock_list)
+df2=pd.DataFrame(index=['qualityEarnings(>1)','intrinsicvalue','potential1(>28)','financialmetriciv','potential2','Tech_an'], columns=stock_list)
 
-# intrinsic value calculator
 for y in stock_list:
     try:
         dftemp= eval(y+'.cashflow')
@@ -53,46 +54,46 @@ for y in stock_list:
         sum= ((m)* (((currcf)*(m**5 -1))/ (m-1)))+ ((m**5)*(20)*(currcf)*(g))
         dcf=sum / eval(y+".info['sharesOutstanding']")
         df2.loc['intrinsicvalue'][y]= dcf
-        df2.loc['potential1(>28)'][y]= (dcf - float(eval(y+".info['preMarketPrice']")))/ eval(y+".info['preMarketPrice']")*100
-        
+        df2.loc['potential1(>28)'][y]= (dcf - float(eval(y+".info['currentPrice']")))/ eval(y+".info['currentPrice']")*100
+
         fmiv= (1+g)*eval(y+".info['trailingPE']")*eval(y+".info['trailingEps']")
         df2.loc['financialmetriciv'][y]= fmiv
-        df2.loc['potential2'][y]=(fmiv - eval(y+".info['preMarketPrice']"))/ eval(y+".info['preMarketPrice']")*100
+        df2.loc['potential2'][y]=(fmiv - eval(y+".info['currentPrice']"))/ eval(y+".info['currentPrice']")*100
+
+        if eval(y+".info['fiftyDayAverage']")>eval(y+".info['twoHundredDayAverage']"):
+            df2.loc['Tech_an'][y] = 'Buy'
+        elif eval(y+".info['fiftyDayAverage']")<eval(y+".info['twoHundredDayAverage']"):
+            df2.loc['Tech_an'][y] = 'sell'
     except:
         continue
         
-frames = [df, df2]
 
-#comparison charts for net income, revenue and freecashflow
-df11 = pd.DataFrame()
-for x in stock_list:
-        df11[x] = np.array(eval(x+".cashflow.loc['Net Income']"))
-df11 = df11.loc[::-1].reset_index(drop=True)
+#comparison chart
+df11 = pd.concat([eval(x+".cashflow.loc['Net Income']") for x in stock_list], axis = 1)
+df11.columns=stock_list
+sns.lineplot( data = df11,dashes= False).set(title='Net Income')
+plt.xticks(rotation=45)
+plt.show()
 
-df12 = pd.DataFrame()
-for x in stock_list:
-        df12[x] = np.array(eval(x+".financials.loc['Total Revenue']"))
-df12 = df12.loc[::-1].reset_index(drop=True)
+df12 = pd.concat([eval(x+".financials.loc['Total Revenue']") for x in stock_list], axis = 1)
+df12.columns=stock_list
+sns.lineplot( data = df12,dashes= False).set(title='Total Revenue')
+plt.xticks(rotation=45)
+plt.show()
 
-df13 = pd.DataFrame()
-for x in stock_list:
-        df13[x] = np.array(eval(x + ".cashflow.loc['Total Cash From Operating Activities']")+ eval(x + ".cashflow.loc['Capital Expenditures']"))
-df13 = df13.loc[::-1].reset_index(drop=True)
+df13 = pd.concat([eval(x + ".cashflow.loc['Total Cash From Operating Activities']")+ eval(x + ".cashflow.loc['Capital Expenditures']")for x in stock_list], axis = 1)
+df13.columns=stock_list
+sns.lineplot( data = df13,dashes= False).set(title='Free Cash Flow')
+plt.xticks(rotation=45)
+plt.show()
 
-df11.plot()
-plt.title('Net Income')
-plt.legend(df11.columns)
+#corr matrix 
+df14 = pd.concat([eval(x+".history(period='2y',interval='1d')['Close']") for x in stock_list], axis = 1)
+df14.columns=stock_list
+corr= df14.corr()
+matrix = np.triu(corr)
+plt.figure(figsize=(16, 12))
+sns.heatmap(corr, annot=True, mask=matrix)
 
-df12.plot()
-plt.title('Total Revenue')
-plt.legend(df12.columns)
-
-df13.plot()
-plt.title('Free Cash Flow')
-plt.legend(df13.columns)
-
-# shows the price history of stocks
-for x in stock_list:
-    mpf.plot(yf.Ticker(x).history(period='2y',interval='1d'), type = 'candle', mav = ( 50,200), volume=True, title = f"Price of {x}", style="yahoo") 
-
-pd.concat(frames)
+# Comparison table
+pd.concat([df, df2])
